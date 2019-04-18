@@ -1,0 +1,11 @@
+# Ignore All (catch binaries) #
+*
+# Unignore extensions/directories #
+!*.*
+!*/
+
+# Sample Files #
+*.c
+*.i
+*.log
+*.txt
