@@ -1,9 +1,23 @@
 from __future__ import print_function
 import argparse
 import sys
+import regex
+import re
+from os import system
 from pycparser import c_parser, c_ast, parse_file
 
 def buildString(path): # so  maybe we  should just keep names for  the acutal paht
+    short_name = {"ArrayDecl":"AD", "ArrayRef":"AR", "Assignment":"A", "BinaryOp": "BO", "Break":"B", \
+    "Case": "C", "Cast": "Ca", "Compound":"Co", "CompoundLiteral":"CL", "Constant":"Cn", \
+    "Continue":"Ct", "Decl":"D", "DeclList":"DL", "Default":"De", "DoWhile": "DW", \
+    "EllipsisParam":"EP", "EmptyStatement":"ES", "Enum":"E", "Enumerator":"En", \
+    "ExprList":"EL", "FileAST":"FA", "For":"F", "FuncCall": "FC", "FuncDecl":"FL", \
+    "FuncDef":"FD", "Goto": "G", "ID":"ID", "IdentifierType":"IT", "If":"I", \
+    "InitList":"IL", "Label":"L", "NamedInitializer":"N", "ParamList":"PL", "PtrDecl":"PD", \
+    "Return":"R", "Struct":"S", "StructRef":"SR", "Switch":"Sw", "TernaryOp":"TO", \
+    "TypeDecl":"TD", "Typedef":"T", "Typename":"Tn", "UnaryOp":"UO", "Union":"U", \
+    "While":"W", "Pragma":"P"}
+
     pathString = ""
     head = path[0]
     tail = path[-1]
@@ -14,7 +28,7 @@ def buildString(path): # so  maybe we  should just keep names for  the acutal pa
     pathString += ","
     for i in range(len(mpath)):
         node = mpath[i]
-        pathString += node.__class__.__name__
+        pathString += short_name[node.__class__.__name__]
         if i != len(mpath) - 1:
             pathString += "|"
     pathString += ","
@@ -22,24 +36,52 @@ def buildString(path): # so  maybe we  should just keep names for  the acutal pa
     pathString += leafToString(tail)
     return pathString
 
+
 # Returns a leaf node's most detailed name possible
 def leafToString(node):
+    short_name = {"ArrayDecl":"AD", "ArrayRef":"AR", "Assignment":"A", "BinaryOp": "BO", "Break":"B", \
+    "Case": "C", "Cast": "Ca", "Compound":"Co", "CompoundLiteral":"CL", "Constant":"Cn", \
+    "Continue":"Ct", "Decl":"D", "DeclList":"DL", "Default":"De", "DoWhile": "DW", \
+    "EllipsisParam":"EP", "EmptyStatement":"ES", "Enum":"E", "Enumerator":"En", \
+    "ExprList":"EL", "FileAST":"FA", "For":"F", "FuncCall": "FC", "FuncDecl":"FL", \
+    "FuncDef":"FD", "Goto": "G", "ID":"ID", "IdentifierType":"IT", "If":"I", \
+    "InitList":"IL", "Label":"L", "NamedInitializer":"N", "ParamList":"PL", "PtrDecl":"PD", \
+    "Return":"R", "Struct":"S", "StructRef":"SR", "Switch":"Sw", "TernaryOp":"TO", \
+    "TypeDecl":"TD", "Typedef":"T", "Typename":"Tn", "UnaryOp":"UO", "Union":"U", \
+    "While":"W", "Pragma":"P"}
+
     nname = node.__class__.__name__
     if nname == "Constant":
-        return (nname + "|" + node.type)
+        return (short_name[nname] + "|" + node.type + "|" + splitString(node.value))
     elif nname == "Goto":
-        return (nname + "|" + node.name)
+        return (short_name[nname] + "|" + splitString(node.name))
+
     elif nname == "ID":
-        return(nname + "|" + node.name)
+        return(short_name[nname] + "|" + splitString(node.name))
     elif nname == "IdentifierType":
-        tname = nname
+        tname = short_name[nname]
         for val in node.names:
             tname += "|" + val
         return tname
     elif nname == "Pragma":
-        return (nname + "|" + node.string)
+        return (short_name[nname] + "|" + splitString(node.string))
     else:
         return nname
+
+def splitString(value):
+    try:
+        float(value)
+        return value
+    except:
+        value = value.strip()
+        cstring = ""
+        splitval = regex.split("(?<=[a-z])(?=[A-Z])|_|[0-9]|(?<=[A-Z])(?=[A-Z][a-z])|\\s+", value, flags=regex.VERSION1)
+        length = len(splitval)
+        for i in range(length - 1):
+            cstring += splitval[i] + "|"
+        cstring += splitval[length-1]
+        return cstring
+
 
 class pNode: # Shell structure to hold a pycparser node and its parent node
     def __init__(self, node, parent):
@@ -131,36 +173,36 @@ class Parser:
 
 
     def outputPathFile(self):
-        with open("test_out.txt", "w") as output:
+        with open("main_out.txt", "a") as output:
             for path in self.final_paths:
                 output.write(buildString(path) + " ")
+            output.write("\n")
 
 
 if __name__ == "__main__":
+
     argparser = argparse.ArgumentParser('Dump AST')
-    argparser.add_argument('filename', help='name of file to parse')
+    argparser.add_argument('dirname', help='name of directory to parse')
     argparser.add_argument('--coord', help='show coordinates in the dump',
                            action='store_true')
     args = argparser.parse_args()
-    ast = parse_file(args.filename, use_cpp=True)
-    #ast.show(showcoord=args.coord)
-    parsing = Parser()
-    for child in ast.children(): # only want to parse functions
-        if child[1].__class__.__name__ == "FuncDef":
-            parsing.leaf_leaf_pathfinder(child[1])
-    print("N paths is " + str(len(parsing.final_paths)))
-    parsing.outputPathFile()
-    # for path in parsing.final_paths:
-    #     print("==============================================================")
-    #     for i in range(len(path)):
-    #         if (i == 0):
-    #             print("=============================START=============================")
-    #             print(path[i])
-    #             print("=PATHSTART=")
-    #         elif (i == len(path) - 1):
-    #             print("=PATHEND=")
-    #             print(path[i])
-    #             print("==============================END==============================")
-    #         else:
-    #             print(path[i].__class__.__name__)
-    #     print("==============================================================")
+    dir = args.dirname
+    filename_file = "ast_finames.txt"
+    cmd = "cd " + dir
+    system(cmd)
+    cmd = "ls > " + filename_file
+    system(cmd)
+    with open(filename_file, "r") as finames_file:
+        finames = finames_file.readlines()
+
+    for filename in finames:
+        filename = filename.rstrip()
+        if not re.fullmatch(".*\.i", filename):
+            continue
+        ast = parse_file(filename, use_cpp=False)
+
+        parsing = Parser()
+        for child in ast.children(): # only want to parse functions
+            if child[1].__class__.__name__ == "FuncDef":
+                parsing.leaf_leaf_pathfinder(child[1])
+        parsing.outputPathFile()
